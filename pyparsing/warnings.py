@@ -1,10 +1,10 @@
 class PyparsingWarning(UserWarning):
-    """Base warning class for all pyparsing warnings"""
+    pass
 
 
 class PyparsingDeprecationWarning(PyparsingWarning, DeprecationWarning):
-    """Base warning class for all pyparsing deprecation warnings"""
+    pass
 
 
 class PyparsingDiagnosticWarning(PyparsingWarning):
-    """Base warning class for all pyparsing diagnostic warnings"""
+    pass

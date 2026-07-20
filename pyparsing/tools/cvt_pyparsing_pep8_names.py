@@ -48,25 +48,7 @@ special_changes_arg_names = {
 pre_pep8_method_name = pp.one_of(pre_pep8_method_names, as_keyword=True)
 pre_pep8_method_name.set_parse_action(lambda t: camel_to_snake(t[0]))
 special_pre_pep8_name = pp.one_of(special_changes, as_keyword=True)
-def update_special_changes(s, l, t):
-    if t[0] == "indentedBlock":
-        warnings.warn(
-            "Conversion of 'indentedBlock' to new 'IndentedBlock'"
-            " requires added code changes to remove 'indentStack' argument\n"
-            f"  {pp.lineno(l, s)}: {pp.line(l, s)}",
-            stacklevel=2,
-        )
-    elif t[0] == "locatedExpr":
-        warnings.warn(
-            "Conversion of 'locatedExpr' to new 'Located'"
-            " may require added code changes - Located does not automatically"
-            " group parsed elements\n"
-            f"  {pp.lineno(l, s)}: {pp.line(l, s)}",
-            stacklevel=2,
-        )
-    return special_changes[t[0]]
 special_pre_pep8_name.set_parse_action(update_special_changes)
-# only replace arg names if part of an arg list
 pre_pep8_arg_name = pp.Regex(
     rf"{pp.util.make_compressed_re(pre_pep8_arg_names)}"
 ) + pp.FollowedBy("=")
@@ -97,13 +79,6 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
 
-    def show_diffs(original, modified):
-        import difflib
-
-        diff = difflib.unified_diff(
-            original.splitlines(), modified.splitlines(), lineterm=""
-        )
-        sys.stdout.writelines(f"{diff_line}\n" for diff_line in diff)
 
     exit_status = 0
 

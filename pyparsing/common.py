@@ -1,4 +1,3 @@
-# common.py
 from .core import *
 from .helpers import DelimitedList, any_open_tag, any_close_tag
 from datetime import datetime, timedelta
@@ -7,199 +6,15 @@ import sys
 PY_310_OR_LATER = sys.version_info >= (3, 10)
 
 
-# some other useful expressions - using lower-case class name since we are really using this as a namespace
 class pyparsing_common:
-    """Here are some common low-level expressions that may be useful in
-    jump-starting parser development:
-
-    - numeric forms (:class:`integers<integer>`, :class:`reals<real>`,
-      :class:`scientific notation<sci_real>`)
-    - common :class:`programming identifiers<identifier>`
-    - network addresses (:class:`MAC<mac_address>`,
-      :class:`IPv4<ipv4_address>`, :class:`IPv6<ipv6_address>`)
-    - ISO8601 :class:`dates<iso8601_date>` and
-      :class:`datetime<iso8601_datetime>`
-    - :class:`UUID<uuid>`
-    - :class:`comma-separated list<comma_separated_list>`
-    - :class:`url`
-
-    Parse actions:
-
-    - :class:`convert_to_integer`
-    - :class:`convert_to_float`
-    - :class:`convert_to_date`
-    - :class:`convert_to_datetime`
-    - :class:`strip_html_tags`
-    - :class:`upcase_tokens`
-    - :class:`downcase_tokens`
-
-    Examples:
-
-    .. testcode::
-
-        pyparsing_common.number.run_tests('''
-            # any int or real number, returned as the appropriate type
-            100
-            -100
-            +100
-            3.14159
-            6.02e23
-            1e-12
-            ''')
-
-    .. testoutput::
-        :options: +NORMALIZE_WHITESPACE
-
-
-        # any int or real number, returned as the appropriate type
-        100
-        [100]
-
-        -100
-        [-100]
-
-        +100
-        [100]
-
-        3.14159
-        [3.14159]
-
-        6.02e23
-        [6.02e+23]
-
-        1e-12
-        [1e-12]
-
-    .. testcode::
-
-        pyparsing_common.fnumber.run_tests('''
-            # any int or real number, returned as float
-            100
-            -100
-            +100
-            3.14159
-            6.02e23
-            1e-12
-            ''')
-
-    .. testoutput::
-        :options: +NORMALIZE_WHITESPACE
-
-
-        # any int or real number, returned as float
-        100
-        [100.0]
-
-        -100
-        [-100.0]
-
-        +100
-        [100.0]
-
-        3.14159
-        [3.14159]
-
-        6.02e23
-        [6.02e+23]
-
-        1e-12
-        [1e-12]
-
-    .. testcode::
-
-        pyparsing_common.hex_integer.run_tests('''
-            # hex numbers
-            100
-            FF
-            ''')
-
-    .. testoutput::
-        :options: +NORMALIZE_WHITESPACE
-
-
-        # hex numbers
-        100
-        [256]
-
-        FF
-        [255]
-
-    .. testcode::
-
-        pyparsing_common.fraction.run_tests('''
-            # fractions
-            1/2
-            -3/4
-            ''')
-
-    .. testoutput::
-        :options: +NORMALIZE_WHITESPACE
-
-
-        # fractions
-        1/2
-        [0.5]
-
-        -3/4
-        [-0.75]
-
-    .. testcode::
-
-        pyparsing_common.mixed_integer.run_tests('''
-            # mixed fractions
-            1
-            1/2
-            -3/4
-            1-3/4
-            ''')
-
-    .. testoutput::
-        :options: +NORMALIZE_WHITESPACE
-
-
-        # mixed fractions
-        1
-        [1]
-
-        1/2
-        [0.5]
-
-        -3/4
-        [-0.75]
-
-        1-3/4
-        [1.75]
-    .. testcode::
-
-        import uuid
-        pyparsing_common.uuid.set_parse_action(token_map(uuid.UUID))
-        pyparsing_common.uuid.run_tests('''
-            # uuid
-            12345678-1234-5678-1234-567812345678
-            ''')
-
-    .. testoutput::
-        :options: +NORMALIZE_WHITESPACE
-
-
-        # uuid
-        12345678-1234-5678-1234-567812345678
-        [UUID('12345678-1234-5678-1234-567812345678')]
-    """
 
     @staticmethod
     def convert_to_integer(_, __, t) -> list[int]:
-        """
-        Parse action for converting parsed integers to Python int
-        """
-        return [int(tt) for tt in t]
+        pass
 
     @staticmethod
     def convert_to_float(_, __, t) -> list[float]:
-        """
-        Parse action for converting parsed numbers to Python float
-        """
-        return [float(tt) for tt in t]
+        pass
 
     integer = (
         Word(nums)
@@ -273,7 +88,6 @@ class pyparsing_common:
     """expression that parses a floating point number with optional
     scientific notation, converts to a float"""
 
-    # streamlining this expression makes the docs nicer-looking
     number = (sci_real | real | signed_integer).set_name("number").streamline()
     """any numeric expression, converts to the corresponding Python type"""
 
@@ -355,44 +169,12 @@ class pyparsing_common:
             [datetime.date(1999, 12, 31)]
         """
 
-        def cvt_fn(ss, ll, tt):
-            try:
-                return datetime.strptime(tt[0], fmt).date()
-            except ValueError as ve:
-                raise ParseException(ss, ll, str(ve))
 
         return cvt_fn
 
     @staticmethod
     def convert_to_datetime(fmt: str = "%Y-%m-%dT%H:%M:%S.%f"):
-        """Helper to create a parse action for converting parsed
-        datetime string to Python :class:`datetime.datetime`
-
-        Params -
-        - fmt - format to be passed to :class:`datetime.strptime` (default= ``"%Y-%m-%dT%H:%M:%S.%f"``)
-
-        Example:
-
-        .. testcode::
-
-            dt_expr = pyparsing_common.iso8601_datetime.copy()
-            dt_expr.set_parse_action(pyparsing_common.convert_to_datetime())
-            print(dt_expr.parse_string("1999-12-31T23:59:59.999"))
-
-        prints:
-
-        .. testoutput::
-
-            [datetime.datetime(1999, 12, 31, 23, 59, 59, 999000)]
-        """
-
-        def cvt_fn(s, l, t):
-            try:
-                return datetime.strptime(t[0], fmt)
-            except ValueError as ve:
-                raise ParseException(s, l, str(ve))
-
-        return cvt_fn
+        pass
 
     iso8601_date = Regex(
         r"(?P<year>\d{4})(?:-(?P<month>\d\d)(?:-(?P<day>\d\d))?)?"
@@ -406,35 +188,7 @@ class pyparsing_common:
 
     @staticmethod
     def as_datetime(s, l, t):
-        """Parse action to convert parsed dates or datetimes to a Python
-        :class:`datetime.datetime`.
-
-        This parse action will use the year, month, day, etc. results
-        names defined in the ISO8601 date expressions, but it can be
-        used with any expression that provides one or more of these fields.
-
-        Omitted fields will default to fields from Jan 1, 00:00:00.
-
-        Invalid dates will raise a :class:`ParseException` with the
-        error message indicating the invalid date fields.
-        """
-        year = int(t.year.lstrip("0") or 0)
-        month = int(t.month or 1)
-        day = int(t.day or 1)
-        hour = int(t.hour or 0)
-        minute = int(t.minute or 0)
-        second = float(t.second or 0)
-        try:
-            # Add the fractional seconds via timedelta so a value that rounds up
-            # to a full second (e.g. "...59.9999995") carries into the next second
-            # instead of overflowing datetime's 0..999999 microsecond argument.
-            return datetime(year, month, day, hour, minute, int(second)) + timedelta(
-                microseconds=round((second % 1) * 1_000_000)
-            )
-        except ValueError as ve:
-            raise ParseException(s, l, f"Invalid date/time: {ve}").with_traceback(
-                ve.__traceback__
-            ) from None
+        pass
 
     if PY_310_OR_LATER:
         iso8601_date_validated = iso8601_date().add_parse_action(as_datetime)
@@ -452,26 +206,7 @@ class pyparsing_common:
 
     @staticmethod
     def strip_html_tags(s: str, l: int, tokens: ParseResults):
-        """Parse action to remove HTML tags from web page HTML source
-
-        Example:
-
-        .. testcode::
-
-            # strip HTML links from normal text
-            text = '<td>More info at the <a href="https://github.com/pyparsing/pyparsing/wiki">pyparsing</a> wiki page</td>'
-            td, td_end = make_html_tags("TD")
-            table_text = td + SkipTo(td_end).set_parse_action(
-                pyparsing_common.strip_html_tags)("body") + td_end
-            print(table_text.parse_string(text).body)
-
-        Prints:
-
-        .. testoutput::
-
-            More info at the pyparsing wiki page
-        """
-        return pyparsing_common._html_stripper.transform_string(tokens[0])
+        pass
 
     _commasepitem = (
         Combine(
@@ -492,42 +227,24 @@ class pyparsing_common:
 
     @staticmethod
     def upcase_tokens(s, l, t):
-        """Parse action to convert tokens to upper case."""
-        return [tt.upper() for tt in t]
+        pass
 
     @staticmethod
     def downcase_tokens(s, l, t):
-        """Parse action to convert tokens to lower case."""
-        return [tt.lower() for tt in t]
+        pass
 
-    # fmt: off
     url = Regex(
-        # https://mathiasbynens.be/demo/url-regex
-        # https://gist.github.com/dperini/729294
         r"(?P<url>"
-        # protocol identifier (optional)
-        # short syntax // still required
         r"(?:(?:(?P<scheme>https?|ftp):)?\/\/)"
-        # user:pass BasicAuth (optional)
         r"(?:(?P<auth>\S+(?::\S*)?)@)?"
         r"(?P<host>"
-        # IP address exclusion
-        # private & local networks
         r"(?!(?:10|127)(?:\.\d{1,3}){3})"
         r"(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})"
         r"(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})"
-        # IP address dotted notation octets
-        # excludes loopback network 0.0.0.0
-        # excludes reserved space >= 224.0.0.0
-        # excludes network & broadcast addresses
-        # (first & last IP address of each class)
         r"(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"
         r"(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}"
         r"(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))"
         r"|"
-        # host & domain names, may end with dot
-        # can be replaced by a shortest alternative
-        # (?![-_])(?:[-\w\u00a1-\uffff]{0,63}[^-_]\.)+
         r"(?:"
         r"(?:"
         r"[a-z0-9\u00a1-\uffff]"
@@ -535,16 +252,11 @@ class pyparsing_common:
         r")?"
         r"[a-z0-9\u00a1-\uffff]\."
         r")+"
-        # TLD identifier name, may end with dot
         r"(?:[a-z\u00a1-\uffff]{2,}\.?)"
         r")"
-        # port number (optional)
         r"(:(?P<port>\d{2,5}))?"
-        # resource path (optional)
         r"(?P<path>\/[^?# ]*)?"
-        # query string (optional)
         r"(\?(?P<query>[^#]*))?"
-        # fragment (optional)
         r"(#(?P<fragment>\S*))?"
         r")"
     ).set_name("url")
@@ -554,10 +266,7 @@ class pyparsing_common:
     .. versionchanged:: 3.1.0
        ``url`` named group added
     """
-    # fmt: on
 
-    # pre-PEP8 compatibility names
-    # fmt: off
     convertToInteger = staticmethod(replaced_by_pep8("convertToInteger", convert_to_integer))
     convertToFloat = staticmethod(replaced_by_pep8("convertToFloat", convert_to_float))
     convertToDate = staticmethod(replaced_by_pep8("convertToDate", convert_to_date))
@@ -565,7 +274,6 @@ class pyparsing_common:
     stripHTMLTags = staticmethod(replaced_by_pep8("stripHTMLTags", strip_html_tags))
     upcaseTokens = staticmethod(replaced_by_pep8("upcaseTokens", upcase_tokens))
     downcaseTokens = staticmethod(replaced_by_pep8("downcaseTokens", downcase_tokens))
-    # fmt: on
 
 
 _builtin_exprs = [

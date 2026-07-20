@@ -1,4 +1,3 @@
-# results.py
 
 from __future__ import annotations
 
@@ -27,56 +26,6 @@ class _ParseResultsWithOffset(NamedTuple):
 
 
 class ParseResults:
-    """Structured parse results, to provide multiple means of access to
-    the parsed data:
-
-    - as a list (``len(results)``)
-    - by list index (``results[0], results[1]``, etc.)
-    - by attribute (``results.<results_name>`` - see :class:`ParserElement.set_results_name`)
-
-    Example:
-
-    .. testcode::
-
-       integer = Word(nums)
-       date_str = (integer.set_results_name("year") + '/'
-                   + integer.set_results_name("month") + '/'
-                   + integer.set_results_name("day"))
-       # equivalent form:
-       # date_str = (integer("year") + '/'
-       #             + integer("month") + '/'
-       #             + integer("day"))
-
-       # parse_string returns a ParseResults object
-       result = date_str.parse_string("1999/12/31")
-
-       def test(s, fn=repr):
-           print(f"{s} -> {fn(eval(s))}")
-
-       test("list(result)")
-       test("result[0]")
-       test("result['month']")
-       test("result.day")
-       test("'month' in result")
-       test("'minutes' in result")
-       test("result.dump()", str)
-
-    prints:
-
-    .. testoutput::
-
-       list(result) -> ['1999', '/', '12', '/', '31']
-       result[0] -> '1999'
-       result['month'] -> '12'
-       result.day -> '31'
-       'month' in result -> True
-       'minutes' in result -> False
-       result.dump() -> ['1999', '/', '12', '/', '31']
-       - day: '31'
-       - month: '12'
-       - year: '1999'
-
-    """
 
     _null_values: tuple[Any, ...] = (None, [], ())
 
@@ -97,64 +46,6 @@ class ParseResults:
     )
 
     class List(list):
-        """
-        Simple wrapper class to distinguish parsed list results that should be preserved
-        as actual Python lists, instead of being converted to :class:`ParseResults`:
-
-        .. testcode::
-
-           import pyparsing as pp
-           ppc = pp.common
-
-           LBRACK, RBRACK, LPAR, RPAR = pp.Suppress.using_each("[]()")
-           element = pp.Forward()
-           item = ppc.integer
-           item_list = pp.DelimitedList(element)
-           element_list = LBRACK + item_list + RBRACK | LPAR + item_list + RPAR
-           element <<= item | element_list
-
-           # add parse action to convert from ParseResults
-           # to actual Python collection types
-           @element_list.add_parse_action
-           def as_python_list(t):
-               return pp.ParseResults.List(t.as_list())
-
-           element.run_tests('''
-               100
-               [2,3,4]
-               [[2, 1],3,4]
-               [(2, 1),3,4]
-               (2,3,4)
-               ([2, 3], 4)
-               ''', post_parse=lambda s, r: (r[0], type(r[0]))
-           )
-
-        prints:
-
-        .. testoutput::
-           :options: +NORMALIZE_WHITESPACE
-
-
-           100
-           (100, <class 'int'>)
-
-           [2,3,4]
-           ([2, 3, 4], <class 'list'>)
-
-           [[2, 1],3,4]
-           ([[2, 1], 3, 4], <class 'list'>)
-
-           [(2, 1),3,4]
-           ([[2, 1], 3, 4], <class 'list'>)
-
-           (2,3,4)
-           ([2, 3, 4], <class 'list'>)
-
-           ([2, 3], 4)
-           ([[2, 3], 4], <class 'list'>)
-
-        (Used internally by :class:`Group` when `aslist=True`.)
-        """
 
         def __new__(cls, contained=None):
             if contained is None:
@@ -188,8 +79,6 @@ class ParseResults:
         self._tokdict = {}
         return self
 
-    # Performance tuning: we construct a *lot* of these, so keep this
-    # constructor as small and fast as possible
     def __init__(
         self,
         toklist=None,
@@ -267,7 +156,6 @@ class ParseResults:
             del self._tokdict[i]
             return
 
-        # slight optimization if del results[:]
         if i == NULL_SLICE:
             self._toklist.clear()
             return
@@ -275,15 +163,12 @@ class ParseResults:
         mylen = len(self._toklist)
         del self._toklist[i]
 
-        # convert int to slice
         if isinstance(i, int):
             if i < 0:
                 i += mylen
             i = slice(i, i + 1)
-        # get removed indices
         removed = list(range(*i.indices(mylen)))
         removed.reverse()
-        # fixup indices in token dictionary
         for occurrences in self._tokdict.values():
             for j in removed:
                 for k, (value, position) in enumerate(occurrences):
@@ -436,7 +321,6 @@ class ParseResults:
 
         """
         self._toklist.insert(index, ins_string)
-        # fixup indices in token dictionary
         for occurrences in self._tokdict.values():
             for k, (value, position) in enumerate(occurrences):
                 if position > index:
@@ -524,15 +408,12 @@ class ParseResults:
 
         if other._tokdict:
             offset = len(self._toklist)
-            # addoffset = lambda a: offset if a < 0 else a + offset
             otheritems = other._tokdict.items()
             otherdictitems = [
-                # (k, _ParseResultsWithOffset(v[0], addoffset(v[1])))
                 (
                     k,
                     _ParseResultsWithOffset(
                         v.result,
-                        # addoffset(v[1])
                         (offset if v.offset < 0 else v.offset + offset),
                     ),
                 )
@@ -550,7 +431,6 @@ class ParseResults:
 
     def __radd__(self, other) -> ParseResults:
         if isinstance(other, int) and other == 0:
-            # useful for merging many ParseResults using sum() builtin
             return self.copy()
         return NotImplemented
 
@@ -677,98 +557,10 @@ class ParseResults:
         return ret
 
     def deepcopy(self) -> ParseResults:
-        """
-        Returns a new deep copy of a :class:`ParseResults` object.
-
-        .. versionadded:: 3.1.0
-        """
-        ret = self.copy()
-        # map id() of each copied token to its copy, so that results names
-        # referencing items in the token list stay linked to the copies (and
-        # decoupled from the original)
-        memo: dict[int, Any] = {}
-        # replace values with copies if they are of known mutable types
-        for i, obj in enumerate(self._toklist):
-            if isinstance(obj, ParseResults):
-                ret._toklist[i] = obj.deepcopy()
-            elif isinstance(obj, (str, bytes)):
-                continue
-            elif isinstance(obj, MutableMapping):
-                ret._toklist[i] = dest = type(obj)()
-                for k, v in obj.items():
-                    dest[k] = v.deepcopy() if isinstance(v, ParseResults) else v
-            elif isinstance(obj, Iterable):
-                ret._toklist[i] = type(obj)(
-                    v.deepcopy() if isinstance(v, ParseResults) else v for v in obj  # type: ignore[call-arg]
-                )
-            else:
-                continue
-            memo[id(obj)] = ret._toklist[i]
-
-        # rebuild the results-name dict so that named results point at the
-        # deep-copied tokens, instead of remaining linked to the original
-        ret._tokdict = {
-            name: [
-                _ParseResultsWithOffset(memo.get(id(value), value), offset)
-                for value, offset in occurrences
-            ]
-            for name, occurrences in self._tokdict.items()
-        }
-
-        return ret
+        pass
 
     def get_name(self) -> str | None:
-        r"""
-        Returns the results name for this token expression.
-
-        Useful when several different expressions might match
-        at a particular location.
-
-        Example:
-
-        .. testcode::
-
-           integer = Word(nums)
-           ssn_expr = Regex(r"\d\d\d-\d\d-\d\d\d\d")
-           house_number_expr = Suppress('#') + Word(nums, alphanums)
-           user_data = (Group(house_number_expr)("house_number")
-                       | Group(ssn_expr)("ssn")
-                       | Group(integer)("age"))
-           user_info = user_data[1, ...]
-
-           result = user_info.parse_string("22 111-22-3333 #221B")
-           for item in result:
-               print(item.get_name(), ':', item[0])
-
-        prints:
-
-        .. testoutput::
-
-           age : 22
-           ssn : 111-22-3333
-           house_number : 221B
-
-        """
-        if self._name:
-            return self._name
-        elif self._parent:
-            par: ParseResults = self._parent
-            parent_tokdict_items = par._tokdict.items()
-            return next(
-                (
-                    k
-                    for k, vlist in parent_tokdict_items
-                    for v, loc in vlist
-                    if v is self
-                ),
-                None,
-            )
-        elif len(self) == 1 and len(self._tokdict) == 1:
-            first_name, first_pr_offset = next(iter(self._tokdict.items()))
-            if first_pr_offset[0].offset <= 0:
-                return first_name
-
-        return None
+        pass
 
     def dump(self, indent="", full=True, include_list=True, _depth=0) -> str:
         """
@@ -879,7 +671,6 @@ class ParseResults:
         """
         pprint.pprint(self.as_list(), *args, **kwargs)
 
-    # add support for pickle protocol
     def __getstate__(self):
         return (
             self._toklist,
@@ -904,20 +695,7 @@ class ParseResults:
 
     @classmethod
     def from_dict(cls, other, name=None) -> ParseResults:
-        """
-        Helper classmethod to construct a :class:`ParseResults` from a ``dict``, preserving the
-        name-value relations as results names. If an optional ``name`` argument is
-        given, a nested :class:`ParseResults` will be returned.
-        """
-        ret = cls([])
-        for k, v in other.items():
-            if isinstance(v, Mapping):
-                ret += cls.from_dict(v, name=k)
-            else:
-                ret += cls([v], name=k, aslist=_is_iterable(v))
-        if name is not None:
-            ret = cls([ret], name=name)
-        return ret
+        pass
 
     asList = as_list
     """
